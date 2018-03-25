@@ -1,0 +1,5 @@
+*.[oa]
+cscope*
+tags
+*.so
+test
