@@ -16,6 +16,12 @@ enum rbtree_ret_e {
     RBTREE_OK = 0,
 };
 
+#define rbtree_must(expr, ret_code) do { \
+    if (!(expr)) {                       \
+        return (ret_code);               \
+    }                                    \
+} while (0)
+
 
 #define RBTREE_BLACK 0
 #define RBTREE_RED   1
@@ -26,10 +32,10 @@ enum rbtree_ret_e {
 #define rbtree_is_black(node)  (!rbtree_is_red(node))
 
 #define rbtree_null_node(tree) (rbtree_node_t) { \
-    .left   = &(tree)->sentinel,                   \
-    .right  = &(tree)->sentinel,                   \
-    .parent = NULL,                              \
-    .color  = RBTREE_BLACK,                      \
+    .left   = &(tree)->sentinel,                 \
+    .right  = &(tree)->sentinel,                 \
+    .parent = &(tree)->sentinel,                 \
+    .color  = RBTREE_RED,                        \
 }
 
 
@@ -59,11 +65,13 @@ rbtree_is_sentinel(rbtree_t *tree, rbtree_node_t *node)
     return (node == &tree->sentinel);
 }
 
+
 static inline int
 rbtree_is_root(rbtree_t *tree, rbtree_node_t *node)
 {
     return tree->root == node;
 }
+
 
 static inline int
 rbtree_is_left_child(rbtree_node_t *node)
@@ -71,10 +79,21 @@ rbtree_is_left_child(rbtree_node_t *node)
     return node->parent->left == node;
 }
 
+
 static inline int
 rbtree_is_right_child(rbtree_node_t *node)
 {
     return node->parent->right == node;
 }
+
+
+static inline rbtree_node_t *
+rbtree_get_uncle(rbtree_node_t *node)
+{
+    return (rbtree_is_left_child(node->parent)) ?
+            node->parent->parent->right :
+            node->parent->parent->left;
+}
+
 
 #endif

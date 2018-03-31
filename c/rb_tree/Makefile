@@ -10,7 +10,7 @@ RB_TREE_DYN_LIB=librbtree.so
 RB_TREE_STATIC_LIB=librbtree.a
 
 
-all: rbtree_dyn_lib rbtree_static_lib test
+all: rbtree_dyn_lib rbtree_static_lib rbtree_test
 
 rbtree_dyn_lib: $(RB_TREE_OBJS)
 	$(CC) -shared -fPIC -o $(RB_TREE_DYN_LIB) $(RB_TREE_OBJS)
@@ -18,9 +18,9 @@ rbtree_dyn_lib: $(RB_TREE_OBJS)
 rbtree_static_lib: $(RB_TREE_OBJS)
 	$(AR) -rcs $(RB_TREE_STATIC_LIB) $(RB_TREE_OBJS)
 
-test: test.o $(RB_TREE_OBJS)
+rbtree_test: rbtree_test.o $(RB_TREE_OBJS)
 	$(CC) $< -o $@ -lcunit
-	@echo "run unit test" && ./test
+	@echo "run unit test" && ./rbtree_test
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -29,4 +29,4 @@ clean:
 	find . -name "*.o" | xargs rm -f
 	rm -f $(RB_TREE_DYN_LIB)
 	rm -f $(RB_TREE_STATIC_LIB)
-	rm -rf test
+	rm -rf rbtree_test

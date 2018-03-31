@@ -9,15 +9,24 @@
 
 
 static int
-rbtree_init_node(rbtree_t *tree,
+rbtree_init_node(rbtree_t      *tree,
                  rbtree_node_t *node,
                  rbtree_node_t *lchild,
                  rbtree_node_t *rchild,
                  rbtree_node_t *parent,
-                 int is_left)
+                 int           is_left,
+                 int           is_red)
 {
-    node->left = lchild;
+    rbtree_must(tree != NULL, RBTREE_INVALID_ARG);
+    rbtree_must(node != NULL && node != &tree->sentinel, RBTREE_INVALID_ARG);
+
+    lchild = (lchild == NULL ? &tree->sentinel : lchild);
+    rchild = (rchild == NULL ? &tree->sentinel : rchild);
+    parent = (parent == NULL ? &tree->sentinel : parent);
+
+    node->left  = lchild;
     node->right = rchild;
+    node->color = (!!is_red) ? RBTREE_RED : RBTREE_BLACK;
 
     if (!rbtree_is_sentinel(tree, lchild)) {
         lchild->parent = node;
@@ -28,15 +37,13 @@ rbtree_init_node(rbtree_t *tree,
     }
 
     node->parent = parent;
-    if (parent == NULL) {
-        return RBTREE_OK;
-    }
-
-    if (is_left) {
-        parent->left = node;
-    }
-    else {
-        parent->right = node;
+    if (!rbtree_is_sentinel(tree, parent)) {
+        if (is_left) {
+            parent->left = node;
+        }
+        else {
+            parent->right = node;
+        }
     }
 
     return RBTREE_OK;
@@ -129,6 +136,110 @@ rbtree_right_rotate(rbtree_t *tree, rbtree_node_t *node)
 }
 
 
+static int
+rbtree_insert_fixup(rbtree_t *tree, rbtree_node_t *node)
+{
+    while (rbtree_is_red(node->parent)) {
+        /** node is red */
+        if (rbtree_is_left_child(node->parent)) {
+            /** since parent of node is red, node must have grandparent */
+            rbtree_node_t *uncle = rbtree_get_uncle(node);
+
+            if (rbtree_is_red(uncle)) {
+                /** case 1: uncle is red */
+                rbtree_set_black(uncle);
+                rbtree_set_black(node->parent);
+                rbtree_set_red(node->parent->parent);
+
+                node = node->parent->parent;
+            }
+            else {
+                /** case 2: uncle is black and node is right child */
+                if (rbtree_is_right_child(node)) {
+                    /** change to case 3 */
+                    node = node->parent;
+                    rbtree_left_rotate(tree, node);
+                }
+
+                /** case 3: uncle is black and node is right child */
+                rbtree_set_black(node->parent);
+                rbtree_set_red(node->parent->parent);
+                rbtree_right_rotate(tree, node->parent->parent);
+            }
+        }
+        else {
+            /** node->parent is right child, just exchange left and right */
+            rbtree_node_t *uncle = rbtree_get_uncle(node);
+
+            if (rbtree_is_red(uncle)) {
+                rbtree_set_black(uncle);
+                rbtree_set_black(node->parent);
+                rbtree_set_red(node->parent->parent);
+
+                node = node->parent->parent;
+            }
+            else {
+                if (rbtree_is_left_child(node)) {
+                    node = node->parent;
+                    rbtree_right_rotate(tree, node);
+                }
+
+                rbtree_set_black(node->parent);
+                rbtree_set_red(node->parent->parent);
+                rbtree_left_rotate(tree, node->parent->parent);
+            }
+        }
+    }
+
+    rbtree_set_black(tree->root);
+
+    return RBTREE_OK;
+}
+
+
+int
+rbtree_insert(rbtree_t *tree, rbtree_node_t *node)
+{
+    rbtree_must(tree != NULL, RBTREE_INVALID_ARG);
+    rbtree_must(node != NULL && node != &tree->sentinel, RBTREE_INVALID_ARG);
+
+    rbtree_node_t *parent   = tree->root;
+    rbtree_node_t *traverse = tree->root;
+
+    *node = (rbtree_node_t)rbtree_null_node(tree);
+    int is_left = -1;
+
+    while (traverse != &tree->sentinel) {
+        parent = traverse;
+
+        is_left = tree->compare(node, traverse) <= 0;
+
+        if (is_left) {
+            traverse = traverse->left;
+        }
+        else {
+            traverse = traverse->right;
+        }
+    }
+
+    node->parent = parent;
+    if (rbtree_is_sentinel(tree, parent)) {
+        /** empty tree */
+        tree->root = node;
+    }
+    else {
+        if (is_left) {
+            parent->left = node;
+        }
+        else {
+            parent->right = node;
+        }
+    }
+
+    return rbtree_insert_fixup(tree, node);
+}
+
+
 int
 rbtree_init(rbtree_t *tree, rbtree_compare compare)
 {
@@ -136,7 +247,7 @@ rbtree_init(rbtree_t *tree, rbtree_compare compare)
         return RBTREE_INVALID_ARG;
     }
 
-    tree->root = NULL;
+    tree->root = &tree->sentinel;
     tree->compare = compare;
 
     tree->sentinel.left = &tree->sentinel;

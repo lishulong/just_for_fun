@@ -2,4 +2,4 @@
 cscope*
 tags
 *.so
-test
+*_test*
