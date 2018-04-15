@@ -17,10 +17,92 @@ struct test_node_s {
 } test_node_s;
 
 
+#define check_node(tree, node, lnode, rnode, pnode, lr, clr) do {         \
+    __typeof__((node)) _sentinel = &(tree)->sentinel;                     \
+    CU_ASSERT((node)->left   == ((lnode) == NULL ? _sentinel : (lnode))); \
+    CU_ASSERT((node)->right  == ((rnode) == NULL ? _sentinel : (rnode))); \
+    CU_ASSERT((node)->parent == ((pnode) == NULL ? _sentinel : (pnode))); \
+    if ((pnode) != NULL) {                                                \
+        CU_ASSERT((node) == ((rbtree_node_t *)(pnode))->lr);              \
+    }                                                                     \
+    else {                                                                \
+        CU_ASSERT((tree)->root == (node));                                \
+    }                                                                     \
+    CU_ASSERT((node)->color == RBTREE_##clr);                             \
+} while (0)
+
+/** according to `introduction to algotithms` */
+#define check_left_final_rbtree(tree, n1, n2, n4, n5, n7, n8, n11, n14, n15) do {    \
+    CU_ASSERT(tree.root == &n7.rbnode);                                              \
+    check_node(&tree, &n7.rbnode, &n2.rbnode, &n11.rbnode, NULL, left, BLACK);       \
+    check_node(&tree, &n2.rbnode, &n1.rbnode, &n5.rbnode, &n7.rbnode, left, RED);    \
+    check_node(&tree, &n11.rbnode, &n8.rbnode, &n14.rbnode, &n7.rbnode, right, RED); \
+    check_node(&tree, &n1.rbnode, NULL, NULL, &n2.rbnode, left, BLACK);              \
+    check_node(&tree, &n5.rbnode, &n4.rbnode, NULL, &n2.rbnode, right, BLACK);       \
+    check_node(&tree, &n8.rbnode, NULL, NULL, &n11.rbnode, left, BLACK);             \
+    check_node(&tree, &n14.rbnode, NULL, &n15.rbnode, &n11.rbnode, right, BLACK);    \
+    check_node(&tree, &n4.rbnode, NULL, NULL, &n5.rbnode, left, RED);                \
+    check_node(&tree, &n15.rbnode, NULL, NULL, &n14.rbnode, right, RED);             \
+} while (0)
+
+#define check_right_final_rbtree(tree, n1, n2, n4, n5, n7, n8, n11, n14, n15) do {   \
+    CU_ASSERT(tree.root == &n7.rbnode);                                              \
+    check_node(&tree, &n7.rbnode, &n4.rbnode, &n14.rbnode, NULL, left, BLACK);       \
+    check_node(&tree, &n4.rbnode, &n2.rbnode, &n5.rbnode, &n7.rbnode, left, RED);    \
+    check_node(&tree, &n14.rbnode, &n8.rbnode, &n15.rbnode, &n7.rbnode, right, RED); \
+    check_node(&tree, &n2.rbnode, &n1.rbnode, NULL, &n4.rbnode, left, BLACK);        \
+    check_node(&tree, &n5.rbnode, NULL, NULL, &n4.rbnode, right, BLACK);             \
+    check_node(&tree, &n8.rbnode, NULL, &n11.rbnode, &n14.rbnode, left, BLACK);      \
+    check_node(&tree, &n15.rbnode, NULL, NULL, &n14.rbnode, right, BLACK);           \
+    check_node(&tree, &n1.rbnode, NULL, NULL, &n2.rbnode, left, RED);                \
+    check_node(&tree, &n11.rbnode, NULL, NULL, &n8.rbnode, right, RED);              \
+} while (0)
+
 #define rbtree_owner(ptr, type, field) \
     (type *)((uintptr_t)ptr - offsetof(type, field))
 
-int
+
+static int
+do_check_sub_rbtree(rbtree_t *tree, rbtree_node_t *node)
+{
+    CU_ASSERT(rbtree_is_red(node) || rbtree_is_black(node));
+
+    if (rbtree_is_sentinel(tree, node)) {
+        return 1;
+    }
+
+    if (rbtree_is_red(node)) {
+        CU_ASSERT(rbtree_is_black(node->left));
+        CU_ASSERT(rbtree_is_black(node->right));
+    }
+
+    int left_black_height = do_check_sub_rbtree(tree, node->left);
+    int right_black_height = do_check_sub_rbtree(tree, node->right);
+
+    CU_ASSERT(left_black_height == right_black_height);
+
+    if (rbtree_is_black(node)) {
+        return left_black_height + 1;
+    }
+
+    return left_black_height;
+}
+
+static int
+test_is_rbtree(rbtree_t *tree)
+{
+    CU_ASSERT(tree != NULL);
+
+    /** root is black */
+    CU_ASSERT(rbtree_is_black(tree->root));
+    /** sentinel aka. leaf is black */
+    CU_ASSERT(rbtree_is_black(&tree->sentinel));
+
+    return do_check_sub_rbtree(tree, tree->root);
+}
+
+
+static int
 test_node_compare(rbtree_node_t *na, rbtree_node_t *nb)
 {
     test_node_t *ta = rbtree_owner(na, test_node_t, rbnode);
@@ -33,7 +115,7 @@ test_node_compare(rbtree_node_t *na, rbtree_node_t *nb)
 }
 
 
-void
+static void
 test_left_rotate(void)
 {
     rbtree_t tree;
@@ -143,7 +225,7 @@ test_left_rotate(void)
 }
 
 
-void
+static void
 test_right_rotate(void)
 {
     rbtree_t tree;
@@ -252,51 +334,7 @@ test_right_rotate(void)
 }
 
 
-#define check_node(tree, node, lnode, rnode, pnode, lr, clr) do {         \
-    __typeof__((node)) _sentinel = &(tree)->sentinel;                     \
-    CU_ASSERT((node)->left   == ((lnode) == NULL ? _sentinel : (lnode))); \
-    CU_ASSERT((node)->right  == ((rnode) == NULL ? _sentinel : (rnode))); \
-    CU_ASSERT((node)->parent == ((pnode) == NULL ? _sentinel : (pnode))); \
-    if ((pnode) != NULL) {                                                \
-        CU_ASSERT((node) == ((rbtree_node_t *)(pnode))->lr);              \
-    }                                                                     \
-    else {                                                                \
-        CU_ASSERT((tree)->root == (node));                                \
-    }                                                                     \
-    CU_ASSERT((node)->color == RBTREE_##clr);                             \
-} while (0)
-
-
-/** according to `introduction to algotithms` */
-#define check_left_final_rbtree(tree, n1, n2, n4, n5, n7, n8, n11, n14, n15) do {    \
-    CU_ASSERT(tree.root == &n7.rbnode);                                              \
-    check_node(&tree, &n7.rbnode, &n2.rbnode, &n11.rbnode, NULL, left, BLACK);       \
-    check_node(&tree, &n2.rbnode, &n1.rbnode, &n5.rbnode, &n7.rbnode, left, RED);    \
-    check_node(&tree, &n11.rbnode, &n8.rbnode, &n14.rbnode, &n7.rbnode, right, RED); \
-    check_node(&tree, &n1.rbnode, NULL, NULL, &n2.rbnode, left, BLACK);              \
-    check_node(&tree, &n5.rbnode, &n4.rbnode, NULL, &n2.rbnode, right, BLACK);       \
-    check_node(&tree, &n8.rbnode, NULL, NULL, &n11.rbnode, left, BLACK);             \
-    check_node(&tree, &n14.rbnode, NULL, &n15.rbnode, &n11.rbnode, right, BLACK);    \
-    check_node(&tree, &n4.rbnode, NULL, NULL, &n5.rbnode, left, RED);                \
-    check_node(&tree, &n15.rbnode, NULL, NULL, &n14.rbnode, right, RED);             \
-} while (0)
-
-
-#define check_right_final_rbtree(tree, n1, n2, n4, n5, n7, n8, n11, n14, n15) do {   \
-    CU_ASSERT(tree.root == &n7.rbnode);                                              \
-    check_node(&tree, &n7.rbnode, &n4.rbnode, &n14.rbnode, NULL, left, BLACK);       \
-    check_node(&tree, &n4.rbnode, &n2.rbnode, &n5.rbnode, &n7.rbnode, left, RED);    \
-    check_node(&tree, &n14.rbnode, &n8.rbnode, &n15.rbnode, &n7.rbnode, right, RED); \
-    check_node(&tree, &n2.rbnode, &n1.rbnode, NULL, &n4.rbnode, left, BLACK);        \
-    check_node(&tree, &n5.rbnode, NULL, NULL, &n4.rbnode, right, BLACK);             \
-    check_node(&tree, &n8.rbnode, NULL, &n11.rbnode, &n14.rbnode, left, BLACK);      \
-    check_node(&tree, &n15.rbnode, NULL, NULL, &n14.rbnode, right, BLACK);           \
-    check_node(&tree, &n1.rbnode, NULL, NULL, &n2.rbnode, left, RED);                \
-    check_node(&tree, &n11.rbnode, NULL, NULL, &n8.rbnode, right, RED);              \
-} while (0)
-
-
-void
+static void
 test_insert_fixup(void)
 {
     rbtree_t tree;
@@ -430,7 +468,7 @@ test_insert_fixup(void)
 }
 
 
-void
+static void
 test_insert(void)
 {
     rbtree_t tree;
@@ -480,7 +518,120 @@ test_insert(void)
     ret = rbtree_insert(&tree, &n11.rbnode);
     CU_ASSERT(ret == RBTREE_OK);
     check_right_final_rbtree(tree, n1, n2, n4, n5, n7, n8, n11, n14, n15);
+
+    test_is_rbtree(&tree);
 }
+
+
+static void
+test_delete_fixup(void)
+{
+    rbtree_t tree;
+    rbtree_init(&tree, test_node_compare);
+
+    /** delete empty tree root */
+    int ret = rbtree_delete_fixup(&tree, tree.root);
+    CU_ASSERT(ret == RBTREE_OK);
+    test_is_rbtree(&tree);
+
+    test_node_t n1 = { .key = 1, .rbnode = rbtree_null_node(&tree), };
+    test_node_t n2 = { .key = 2, .rbnode = rbtree_null_node(&tree), };
+    test_node_t n4 = { .key = 4, .rbnode = rbtree_null_node(&tree), };
+    test_node_t n5 = { .key = 5, .rbnode = rbtree_null_node(&tree), };
+    test_node_t n7 = { .key = 7, .rbnode = rbtree_null_node(&tree), };
+    test_node_t n8 = { .key = 8, .rbnode = rbtree_null_node(&tree), };
+    test_node_t n9 = { .key = 9, .rbnode = rbtree_null_node(&tree), };
+
+    /** case 4 */
+    tree.root = &n8.rbnode;
+    rbtree_init_node(&tree, &n8.rbnode, &n2.rbnode, NULL, NULL, 0, 0);
+    rbtree_init_node(&tree, &n2.rbnode, &n1.rbnode, &n5.rbnode, &n8.rbnode, 1, 1);
+    rbtree_init_node(&tree, &n1.rbnode, NULL, NULL, &n2.rbnode, 1, 0);
+    rbtree_init_node(&tree, &n5.rbnode, &n4.rbnode, &n7.rbnode, &n2.rbnode, 0, 0);
+    rbtree_init_node(&tree, &n4.rbnode, NULL, NULL, &n5.rbnode, 1, 1);
+    rbtree_init_node(&tree, &n7.rbnode, NULL, NULL, &n5.rbnode, 0, 1);
+
+    CU_ASSERT(rbtree_delete_fixup(&tree, &n1.rbnode) == RBTREE_OK);
+
+    check_node(&tree, &n8.rbnode, &n5.rbnode, NULL, NULL, left, BLACK);
+    check_node(&tree, &n5.rbnode, &n2.rbnode, &n7.rbnode, &n8.rbnode, left, RED);
+    check_node(&tree, &n2.rbnode, &n1.rbnode, &n4.rbnode, &n5.rbnode, left, BLACK);
+    check_node(&tree, &n7.rbnode, NULL, NULL, &n5.rbnode, right, BLACK);
+    check_node(&tree, &n1.rbnode, NULL, NULL, &n2.rbnode, left, BLACK);
+    check_node(&tree, &n4.rbnode, NULL, NULL, &n2.rbnode, right, RED);
+
+    /** case 3 */
+    tree.root = &n9.rbnode;
+    rbtree_init_node(&tree, &n9.rbnode, &n2.rbnode, NULL, NULL, 0, 0);
+    rbtree_init_node(&tree, &n2.rbnode, &n1.rbnode, &n7.rbnode, &n9.rbnode, 1, 1);
+    rbtree_init_node(&tree, &n1.rbnode, NULL, NULL, &n2.rbnode, 1, 0);
+    rbtree_init_node(&tree, &n7.rbnode, &n5.rbnode, &n8.rbnode, &n2.rbnode, 0, 0);
+    rbtree_init_node(&tree, &n5.rbnode, &n4.rbnode, NULL, &n7.rbnode, 1, 1);
+    rbtree_init_node(&tree, &n8.rbnode, NULL, NULL, &n7.rbnode, 0, 0);
+    rbtree_init_node(&tree, &n4.rbnode, NULL, NULL, &n5.rbnode, 1, 1);
+
+    CU_ASSERT(rbtree_delete_fixup(&tree, &n1.rbnode) == RBTREE_OK);
+
+    check_node(&tree, &n9.rbnode, &n5.rbnode, NULL, NULL, left, BLACK);
+    check_node(&tree, &n5.rbnode, &n2.rbnode, &n7.rbnode, &n9.rbnode, left, RED);
+    check_node(&tree, &n2.rbnode, &n1.rbnode, &n4.rbnode, &n5.rbnode, left, BLACK);
+    check_node(&tree, &n7.rbnode, NULL, &n8.rbnode, &n5.rbnode, right, BLACK);
+    check_node(&tree, &n1.rbnode, NULL, NULL, &n2.rbnode, left, BLACK);
+    check_node(&tree, &n4.rbnode, NULL, NULL, &n2.rbnode, right, RED);
+    check_node(&tree, &n8.rbnode, NULL, NULL, &n7.rbnode, right, BLACK);
+
+    /** case 2 */
+    tree.root = &n9.rbnode;
+    rbtree_init_node(&tree, &n9.rbnode, &n2.rbnode, NULL, NULL, 0, 0);
+    rbtree_init_node(&tree, &n2.rbnode, &n1.rbnode, &n5.rbnode, &n9.rbnode, 1, 1);
+    rbtree_init_node(&tree, &n1.rbnode, NULL, NULL, &n2.rbnode, 1, 0);
+    rbtree_init_node(&tree, &n5.rbnode, &n4.rbnode, &n7.rbnode, &n2.rbnode, 0, 0);
+    rbtree_init_node(&tree, &n4.rbnode, NULL, NULL, &n5.rbnode, 1, 0);
+    rbtree_init_node(&tree, &n7.rbnode, NULL, NULL, &n5.rbnode, 0, 0);
+
+    CU_ASSERT(rbtree_delete_fixup(&tree, &n1.rbnode) == RBTREE_OK);
+
+    check_node(&tree, &n9.rbnode, &n2.rbnode, NULL, NULL, left, BLACK);
+    check_node(&tree, &n2.rbnode, &n1.rbnode, &n5.rbnode, &n9.rbnode, left, BLACK);
+    check_node(&tree, &n1.rbnode, NULL, NULL, &n2.rbnode, left, BLACK);
+    check_node(&tree, &n5.rbnode, &n4.rbnode, &n7.rbnode, &n2.rbnode, right, RED);
+    check_node(&tree, &n4.rbnode, NULL, NULL, &n5.rbnode, left, BLACK);
+    check_node(&tree, &n7.rbnode, NULL, NULL, &n5.rbnode, right, BLACK);
+
+    /** case 1 */
+    tree.root = &n2.rbnode;
+    rbtree_init_node(&tree, &n2.rbnode, &n1.rbnode, &n8.rbnode, NULL, 0, 0);
+    rbtree_init_node(&tree, &n1.rbnode, NULL, NULL, &n2.rbnode, 1, 0);
+    rbtree_init_node(&tree, &n8.rbnode, &n5.rbnode, &n9.rbnode, &n2.rbnode, 0, 1);
+    rbtree_init_node(&tree, &n5.rbnode, &n4.rbnode, &n7.rbnode, &n8.rbnode, 1, 0);
+    rbtree_init_node(&tree, &n9.rbnode, NULL, NULL, &n8.rbnode, 0, 0);
+    rbtree_init_node(&tree, &n4.rbnode, NULL, NULL, &n5.rbnode, 1, 0);
+    rbtree_init_node(&tree, &n7.rbnode, NULL, NULL, &n5.rbnode, 0, 0);
+
+    CU_ASSERT(rbtree_delete_fixup(&tree, &n1.rbnode) == RBTREE_OK);
+
+    check_node(&tree, &n8.rbnode, &n2.rbnode, &n9.rbnode, NULL, left, BLACK);
+    check_node(&tree, &n9.rbnode, NULL, NULL, &n8.rbnode, right, BLACK);
+    check_node(&tree, &n2.rbnode, &n1.rbnode, &n5.rbnode, &n8.rbnode, left, BLACK);
+    check_node(&tree, &n1.rbnode, NULL, NULL, &n2.rbnode, left, BLACK);
+    check_node(&tree, &n5.rbnode, &n4.rbnode, &n7.rbnode, &n2.rbnode, right, RED);
+    check_node(&tree, &n4.rbnode, NULL, NULL, &n5.rbnode, left, BLACK);
+    check_node(&tree, &n7.rbnode, NULL, NULL, &n5.rbnode, right, BLACK);
+}
+
+
+static void
+test_delete(void)
+{
+    rbtree_t tree;
+    rbtree_init(&tree, test_node_compare);
+
+    test_node_t n1  = { .key = 1,  .rbnode = rbtree_null_node(&tree), };
+
+    int ret = rbtree_insert(&tree, &n1.rbnode);
+    CU_ASSERT(ret == RBTREE_OK);
+}
+
 
 /** test cases for one single suit */
 static CU_TestInfo test_rbtree_rotate[] = {
@@ -492,6 +643,8 @@ static CU_TestInfo test_rbtree_rotate[] = {
 static CU_TestInfo test_rbtree_insert[] = {
     { "test_insert_fixup", test_insert_fixup },
     { "test_insert",       test_insert       },
+    { "test_delete_fixup", test_delete_fixup },
+    { "test_delete",       test_delete       },
     CU_TEST_INFO_NULL,
 };
 

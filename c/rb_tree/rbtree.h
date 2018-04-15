@@ -9,9 +9,9 @@
 /** error type */
 typedef enum rbtree_ret_e rbtree_ret_t;
 enum rbtree_ret_e {
-    RBTREE_INVALID_ARG      = -1000,
-
-    RBTREE_INVALID_TOPOLOGY,
+    RBTREE_INVALID_ARG       = -1000,
+    RBTREE_INVALID_TOPOLOGY  = -999,
+    RBTREE_NOT_FOUND         = -998,
 
     RBTREE_OK = 0,
 };
@@ -57,6 +57,22 @@ struct rbtree_s {
     rbtree_node_t sentinel;
     rbtree_compare compare;
 };
+
+typedef enum rbtree_search_mode_e rbtree_search_mode_t;
+enum rbtree_search_mode_e {
+    RBTREE_SEARCH_MODE_EQ  = 0x01,
+    RBTREE_SEARCH_MODE_LE  = 0x02,
+    RBTREE_SEARCH_MODE_GE  = 0x03,
+
+    RBTREE_SEARCH_MODE_MAX = 0x04,
+};
+
+
+int
+rbtree_search(rbtree_t *tree,
+              rbtree_node_t *value,
+              rbtree_search_mode_t mode,
+              rbtree_node_t **ret);
 
 
 static inline int
